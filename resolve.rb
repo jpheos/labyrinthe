@@ -1,56 +1,75 @@
-require 'awesome_print'
-require_relative 'string_color'
+# frozen_string_literal: true
 
-
+require 'curses'
 
 class Cell
   attr_reader :x, :y
 
+  WALL     = 1
+  START    = 2
+  EXIT     = 3
+  EMPTY    = 4
+  TESTING  = 5
+  DEAD     = 6
+  SUCCESS  = 7
+
   def initialize(x, y, letter)
     @x = x
     @y = y
-    @letter = letter
+    @type = case letter
+            when '#' then WALL
+            when '.' then EMPTY
+            when 'S' then START
+            when 'E' then EXIT
+            end
   end
 
-  def to_s
-    case @letter
-    when '.' then @letter.blue
-    when 'D' then '.'.red
-    when 'S' then @letter.magenta
-    when 'E' then @letter.magenta
-    when 'T' then '.'.brown
-    when 'W' then '.'.green
-    else
-      @letter
-    end
+  def win_print(win)
+    letter = case @type
+             when WALL then '#'
+             when EXIT then 'E'
+             when START then 'S'
+             else
+               '•'
+             end
+    win.setpos(@y, @x)
+    win.color_set(@type)
+    win.addstr(letter)
+    win.refresh
+    # win.color_set(WALL)
   end
 
   def start?
-    @letter == 'S'
+    @type == START
   end
 
   def test!
-    @letter = 'T' if @letter == '.'
+    @type = TESTING if @type == EMPTY
   end
 
   def testable?
-    ['E', '.'].include? @letter
+    [EXIT, EMPTY].include? @type
   end
 
   def dead!
-    @letter = 'D'
+    @type = DEAD
   end
 
   def success!
-    @letter = 'W'
+    @type = SUCCESS unless [START, EXIT].include? @type
   end
 
   def sortie?
-    @letter == 'E'
+    @type == EXIT
   end
 end
 
 class Labyrinthe
+
+  attr_reader :width
+  attr_reader :height
+  attr_writer :win
+
   def initialize(file_path)
     @file_path = file_path
     parse
@@ -60,16 +79,14 @@ class Labyrinthe
     cell.x == 2 && cell.y == 3
   end
 
-  def show
-    sleep(0.03)
-    system "clear"
+  def print_all
     @height.times do |j|
       @width.times do |i|
-        print @cells.find { |c| c.x == i && c.y == j }
+        cell = @cells.find { |c| c.x == i && c.y == j }
+        cell.win_print(@win)
       end
-      print "\n"
+      @win.addstr("\n")
     end
-    puts "\n\n\n"
   end
 
   def parse
@@ -86,6 +103,7 @@ class Labyrinthe
   end
 
   def resolve
+    print_all
     resolve_cell(cell_start)
   end
 
@@ -95,13 +113,14 @@ class Labyrinthe
 
   def resolve_cell(cell)
     return true if cell.sortie?
-
-    show
+    cell.win_print(@win)
     cell.test!
+    cell.win_print(@win)
+    sleep(0.01)
     ad_cells = adjacente_cells(cell)
     success = ad_cells.any? { |c| resolve_cell(c) }
     success ? cell.success! : cell.dead!
-    show
+    cell.win_print(@win)
     success
   end
 
@@ -115,7 +134,28 @@ class Labyrinthe
   end
 end
 
-Labyrinthe.new("map2.txt").resolve
+begin
+  Curses.init_screen
+  Curses.start_color
+  Curses.noecho
+  Curses.cbreak
+  Curses.init_pair(Cell::WALL,    Curses::COLOR_WHITE, Curses::COLOR_BLACK)
+  Curses.init_pair(Cell::START,   Curses::COLOR_MAGENTA, Curses::COLOR_BLACK)
+  Curses.init_pair(Cell::EXIT,    Curses::COLOR_MAGENTA, Curses::COLOR_BLACK)
+  Curses.init_pair(Cell::EMPTY,   Curses::COLOR_BLACK, Curses::COLOR_BLACK)
+  Curses.init_pair(Cell::TESTING, Curses::COLOR_YELLOW, Curses::COLOR_BLACK)
+  Curses.init_pair(Cell::DEAD,    Curses::COLOR_RED, Curses::COLOR_BLACK)
+  Curses.init_pair(Cell::SUCCESS, Curses::COLOR_GREEN, Curses::COLOR_BLACK)
+  laby = Labyrinthe.new("map3.txt")
+
+  top, left = (Curses.lines - laby.height) / 2, (Curses.cols - laby.width) / 2
+  win = Curses::Window.new(laby.height, laby.width, top, left)
+  laby.win = win
+  laby.resolve
+  win.getch
+ensure
+  win.close
+end
 
 
 
