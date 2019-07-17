@@ -116,7 +116,7 @@ class Labyrinthe
     cell.win_print(@win)
     cell.test!
     cell.win_print(@win)
-    sleep(0.01)
+    sleep(0.05)
     ad_cells = adjacente_cells(cell)
     success = ad_cells.any? { |c| resolve_cell(c) }
     success ? cell.success! : cell.dead!
@@ -146,7 +146,7 @@ begin
   Curses.init_pair(Cell::TESTING, Curses::COLOR_YELLOW, Curses::COLOR_BLACK)
   Curses.init_pair(Cell::DEAD,    Curses::COLOR_RED, Curses::COLOR_BLACK)
   Curses.init_pair(Cell::SUCCESS, Curses::COLOR_GREEN, Curses::COLOR_BLACK)
-  laby = Labyrinthe.new("map3.txt")
+  laby = Labyrinthe.new("map4.txt")
 
   top, left = (Curses.lines - laby.height) / 2, (Curses.cols - laby.width) / 2
   win = Curses::Window.new(laby.height, laby.width, top, left)
